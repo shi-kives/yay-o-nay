@@ -1,9 +1,10 @@
-import re, time, random, requests
+import re, time, random
+from requests_html import HTMLSession
 from bs4 import BeautifulSoup
 
 HEADERS_LIST = [
-    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36", "Accept-Language": "en-US,en;q=0.9", "Referer": "https://www.amazon.com/"},
-    {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36", "Accept-Language": "en-US,en;q=0.9", "Referer": "https://www.amazon.com/"},
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36", "Accept-Language": "en-US,en;q=0.9", "Referer": "https://www.amazon.in/"},
+    {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/119.0.0.0 Safari/537.36", "Accept-Language": "en-US,en;q=0.9", "Referer": "https://www.amazon.in/"},
 ]
 
 def extract_asin(url):
@@ -13,25 +14,29 @@ def extract_asin(url):
     return match.group(1)
 
 def scrape_reviews(asin, max_pages = 5):
+    session = HTMLSession()
     reviews = []
     for page in range(1, max_pages + 1):
-        url = f"https://www.amazon.com/product-reviews/{asin}?pageNumber={page}&sortBy=recent"
+        url = f"https://www.amazon.in/product-reviews/{asin}?pageNumber={page}&sortBy=recent"
         headers = random.choice(HEADERS_LIST)
 
         try:
-            resp = requests.get(url, headers=headers, timeout=10)
-        except requests.RequestException:
+            resp = session.get(url)
+            resp.html.render(timeout=20)
+        except Exception as e:
+            print("render failed: ",e)
             break
 
         if resp.status_code != 200:
             break
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        review_divs = soup.find_all("span", {"data-hook": "review-body"})
-        rating_spans = soup.find_all("i", {"data-hook": "review-star-rating"})
-        title_anchors = soup.find_all("a", {"data-hook": "review-title"})
+        soup = BeautifulSoup(resp.html.html, "html.parser")
+        review_divs = soup.select("span.review-text-content span")
+        rating_spans = soup.select("i.review-rating span")
+        title_anchors = soup.select("a.review-title span")
 
         if not review_divs:
+            print("can't find review divs (most likely blocked)")
             break
 
         for i, div in enumerate(review_divs):
