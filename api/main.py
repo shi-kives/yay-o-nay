@@ -1,6 +1,10 @@
+from dotenv import load_dotenv
+import os
+load_dotenv(override=True)
+
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-import redis, json, os
+import redis, json
 from api.schemas import (UrlRequest, TextRequest, SentimentOut, ProductScore, Recommendation, TrendPoint, CompareResult, TaskStatus)
 from api.middleware import APIKeyMiddleware
 from pipeline.models import get_db
@@ -10,10 +14,11 @@ from pipeline.recommendation import get_recommendation
 from pipeline.scraper import extract_asin
 from tasks.inference import run_full_pipeline, celery_app
 
-app = FastAPI(title="YayONay API", version="1.0")
-app.add_middleware(APIKeyMiddleware)
 
-redis_client = redis.from_url(os.get_env("REDIS_URL", "redis://localhost:6379/0"))
+app = FastAPI(title="YayONay API", version="1.0")
+#app.add_middleware(APIKeyMiddleware)
+
+redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 
 @app.get("/health")
 def health():
@@ -29,7 +34,7 @@ async def anaylze_url(req):
     return {"task_id": task.id, "asin": asin, "status": "queued"}
 
 @app.post("/analyze/text", response_model=SentimentOut)
-async def analyze_text(req):
+async def analyze_text(req: TextRequest):
     return classify(req.text)
 
 @app.get("/products/{asin}/score", response_model=ProductScore)
