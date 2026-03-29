@@ -1,0 +1,11 @@
+venv/
+.env
+__pycache__/
+*.pyc
+.git/
+.gitignore
+mlruns/
+mlartifacts/
+data/wordclouds/
+*.egg-info/
+.pytest_cache/
