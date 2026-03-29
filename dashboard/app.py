@@ -34,12 +34,12 @@ def fetch_score(asin):
 
 @st.cache_data(ttl=500)
 def fetch_trends(asin):
-    r = requests.get(f"{API_BASE}/prducts/{asin}/trends", headers=HEADERS)
+    r = requests.get(f"{API_BASE}/products/{asin}/trends", headers=HEADERS)
     return r.json() if r.status_code == 200 else {}
 
 @st.cache_data(ttl=500)
 def fetch_summary(asin):
-    r = requests.get(f"{API_BASE}/products/{asin}/aspects", headers=HEADERS)
+    r = requests.get(f"{API_BASE}/products/{asin}/summary", headers=HEADERS)
     return r.json().get("summary", "") if r.status_code == 200 else ""
 
 @st.cache_data(ttl=500)
@@ -176,16 +176,17 @@ elif st.session_state.asin and not st.session_state.analyzing:
     with col1:
         st.subheader("Sentiment Distribution")
         all_aspects = aspects.get("all_aspects", {})
+        print(all_aspects)
         pos_count = sum(1 for v in all_aspects.values() if v["sentiment"] == "positive")
         neg_count = sum(1 for v in all_aspects.values() if v["sentiment"] == "negative")
         pie_fig = px.pie(
-            value = [pos_count, neg_count],
+            values = [pos_count, neg_count],
             names = ["Positive", "Negative"],
             color_discrete_sequence = ["#1D9E75", "#E24B4A"],
             hole = 0.4
         )
         pie_fig.update_layout(showlegend=True, margin=dict(t=0,b=0,l=0,r=0), height=280, paper_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(pie_fig, use_container_width=True)
+        st.plotly_chart(pie_fig, width='stretch')
 
     with col2:
         st.subheader("Sentiment Trend")
@@ -214,29 +215,29 @@ elif st.session_state.asin and not st.session_state.analyzing:
         else:
             st.info("Not enough data for trend analysis yet.")
 
-st.divider()
+    st.divider()
 
-st.subheader("Feature Breakdown")
-pros, cons = st.columns(2)
-positives = rec.get("positives", [])
-negatives = rec.get("negatives", [])
-all_asp = aspects.get("all_aspects", [])
+    st.subheader("Feature Breakdown")
+    pros, cons = st.columns(2)
+    positives = rec.get("positives", [])
+    negatives = rec.get("negatives", [])
+    all_asp = aspects.get("all_aspects", {})
 
-with pros:
-    st.markdown("**What people love**")
-    for asp in positives:
-        count = all_asp.get(asp, {}).get("mention_coung", 0)
-        score = all_asp.get(asp, {}).get("avg_score", 0)
-        st.markdown(f"""
-            <div style="padding:8px 12px;margin-bottom:6px;border-radius:8px;
-                        background:#E1F5EE;border-left:3px solid #1D9E75">
-              <span style="font-weight:500;color:#085041">{asp}</span>
-              <span style="color:#0F6E56;font-size:12px;float:right">
-                {count} mentions · +{score:.2f}
-              </span>
-            </div>
-            """, unsafe_allow_html=True)
-    
+    with pros:
+        st.markdown("**What people love**")
+        for asp in positives:
+            count = all_asp.get(asp, {}).get("mention_count", 0)
+            score = all_asp.get(asp, {}).get("avg_score", 0)
+            st.markdown(f"""
+                <div style="padding:8px 12px;margin-bottom:6px;border-radius:8px;
+                            background:#E1F5EE;border-left:3px solid #1D9E75">
+                <span style="font-weight:500;color:#085041">{asp}</span>
+                <span style="color:#0F6E56;font-size:12px;float:right">
+                    {count} mentions · +{score:.2f}
+                </span>
+                </div>
+                """, unsafe_allow_html=True)
+        
     with cons:
         st.markdown("**What people complain about**")
         for asp in negatives:
@@ -245,52 +246,51 @@ with pros:
             st.markdown(f"""
             <div style="padding:8px 12px;margin-bottom:6px;border-radius:8px;
                         background:#FCEBEB;border-left:3px solid #E24B4A">
-              <span style="font-weight:500;color:#791F1F">{asp}</span>
-              <span style="color:#A32D2D;font-size:12px;float:right">
+            <span style="font-weight:500;color:#791F1F">{asp}</span>
+            <span style="color:#A32D2D;font-size:12px;float:right">
                 {count} mentions · {score:.2f}
-              </span>
+            </span>
             </div>
             """, unsafe_allow_html=True)
 
-st.divider()
+    st.divider()
+    wc_col, sum_col = st.columns([1,1])
 
-wc_col, sum_col = st.columns([1,1])
+    with wc_col:
+        st.subheader("Word Cloud")
+        wc_path = f"data/wordclouds/{asin}.png"
+        if os.path.exists(wc_path):
+            st.image(wc_path, use_container_width=True)
+        else:
+            st.info("Word cloud not generated yet.")
 
-with wc_col:
-    st.subheader("Word Cloud")
-    wc_path = f"data/wordclouds/{asin}.png"
-    if os.path.exists(wc_path):
-        st.image(wc_path, use_container_width=True)
-    else:
-        st.info("Word cloud not generated yet.")
+    with sum_col:
+        st.subheader("Review Summary")
+        if summary:
+            st.text_area("", value=summary, height=200, disabled=True)
+        else:
+            st.info("Summary not generated yet.")
 
-with sum_col:
-    st.subheader("Review Summary")
-    if summary:
-        st.text_area("", value=summary, height=200, disabled=True)
-    else:
-        st.info("Summary not generated yet.")
+    st.divider()
 
-st.divider()
+    st.subheader("Compare with another product")
+    compare_asin = st.text_input("Enter another ASIN to compare", placeholder="B000000002")
 
-st.subheader("Compare with another product")
-compare_asin = st.text_input("Enter another ASIN to compare", placeholder="B000000002")
-
-if compare_asin and compare_asin != asin:
-    cmp = fetch_compare(asin, compare_asin)
-    if cmp:
-        asp_a = fetch_aspects(asin).get("all_aspects",{})
-        asp_b = fetch_aspects(compare_asin).get("all_aspects",{})
-        shared = list(set(asp_a.keys()) & set(asp_b.keys()))[::5]
-        if shared:
-            scores_a = [asp_a[k]["avg_score"] for k in shared]
-            scores_b = [asp_b[k]["avg_score"] for k in shared]
-            radar = go.Figure()
-            radar.add_trace(go.Scatterpolar(r=scores_a, theta=shared, fill="toself", name=asin, line_color ="#7F77DD"))
-            radar.add_trace(go.Scatterpolar(r=scores_b, theta=shared, fill="toself", name=compare_asin, line_color="#1D9E75"))
-            radar.update_layout(polar=dict(radialaxis=dict(visible=True)), height=360, paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(radar, use_container_width=True)
-        st.metric("Semantic Similarity", f"{cmp.get('similarity', 0):.0%}")
+    if compare_asin and compare_asin != asin:
+        cmp = fetch_compare(asin, compare_asin)
+        if cmp:
+            asp_a = fetch_aspects(asin).get("all_aspects",{})
+            asp_b = fetch_aspects(compare_asin).get("all_aspects",{})
+            shared = list(set(asp_a.keys()) & set(asp_b.keys()))[::5]
+            if shared:
+                scores_a = [asp_a[k]["avg_score"] for k in shared]
+                scores_b = [asp_b[k]["avg_score"] for k in shared]
+                radar = go.Figure()
+                radar.add_trace(go.Scatterpolar(r=scores_a, theta=shared, fill="toself", name=asin, line_color ="#7F77DD"))
+                radar.add_trace(go.Scatterpolar(r=scores_b, theta=shared, fill="toself", name=compare_asin, line_color="#1D9E75"))
+                radar.update_layout(polar=dict(radialaxis=dict(visible=True)), height=360, paper_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(radar, use_container_width=True)
+            st.metric("Semantic Similarity", f"{cmp.get('similarity', 0):.0%}")
 
 else:
     st.markdown("""

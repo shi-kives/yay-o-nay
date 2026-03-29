@@ -125,8 +125,9 @@ def get_aspect_summary(asin, db):
     key = lambda a: summary[a]["mention_count"], reverse=True)   
 
     return {
+        "all_aspects": summary,
         "top_positive": positives[:5],
-        "top_negative": negatives[:5]
+        "top_negative": negatives[:5],
     }
 
 def get_trends(asin, db):

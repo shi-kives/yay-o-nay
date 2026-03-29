@@ -17,6 +17,11 @@ class ProductScore(BaseModel):
     confidence: float
     review_count: int
 
+class AspectResponse(BaseModel):
+    top_positive: list[str]
+    top_negative: list[str]
+    all_aspects: dict
+
 class Recommendation(BaseModel):
     verdict: str
     label: str

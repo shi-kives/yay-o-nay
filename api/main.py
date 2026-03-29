@@ -5,7 +5,7 @@ load_dotenv(override=True)
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 import redis, json
-from api.schemas import (UrlRequest, TextRequest, SentimentOut, ProductScore, Recommendation, TrendPoint, CompareResult, TaskStatus)
+from api.schemas import (UrlRequest, TextRequest, SentimentOut, ProductScore, Recommendation, TrendPoint, CompareResult, TaskStatus, AspectResponse)
 from api.middleware import APIKeyMiddleware
 from pipeline.models import get_db
 from pipeline.classifier import classify
@@ -56,7 +56,7 @@ async def recommendation(asin, db: Session = Depends(get_db)):
 async def trends(asin, db: Session = Depends(get_db)):
     return get_trends(asin, db)
 
-@app.get("/products/{asin}/aspects")
+@app.get("/products/{asin}/aspects", response_model=AspectResponse)
 async def aspects(asin, db: Session = Depends(get_db)):
     return get_aspect_summary(asin, db)
 
